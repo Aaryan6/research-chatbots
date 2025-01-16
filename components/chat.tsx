@@ -44,7 +44,11 @@ export default function Chat({
   });
 
   if (!userInfo) {
-    return <UserForm />;
+    return (
+      <div className="fixed w-full max-w-md right-0 top-0 md:top-auto md:bottom-4 md:right-4 z-50 md:h-auto h-full">
+        <UserForm />
+      </div>
+    );
   }
 
   return (

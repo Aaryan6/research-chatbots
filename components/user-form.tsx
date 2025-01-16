@@ -62,12 +62,8 @@ export default function UserForm() {
     }
   };
 
-  const handleSkip = () => {
-    router.refresh();
-  };
-
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full">
       <CardHeader>
         <CardTitle className="text-xl font-semibold">
           Tell us a bit more
@@ -132,14 +128,6 @@ export default function UserForm() {
           >
             {isLoading ? "Saving..." : "Continue"}
           </Button>
-
-          <button
-            type="button"
-            onClick={handleSkip}
-            className="w-full text-sm text-muted-foreground hover:underline"
-          >
-            Skip for now
-          </button>
         </form>
       </CardContent>
     </Card>

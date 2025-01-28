@@ -18,6 +18,12 @@ export type ChatFormData = {
   created_at?: string;
 };
 
+export type FeedbackData = {
+  chatId: string;
+  rating: number;
+  feedback: string;
+};
+
 export async function saveUserInfo(data: UserFormData) {
   try {
     // Save to Supabase
@@ -55,4 +61,38 @@ export async function saveChat(data: ChatFormData) {
   if (error) throw error;
 
   return { success: true };
+}
+
+export async function saveFeedback(data: FeedbackData) {
+  try {
+    const { error } = await supabase
+      .from("chatbot_chats")
+      .update({
+        feedback_rating: parseInt(data.rating.toString()),
+        feedback_text: data.feedback.trim(),
+        is_completed: true
+      })
+      .eq('id', data.chatId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error("Error saving feedback:", error);
+    return { success: false, error };
+  }
+}
+
+export async function endChat(chatId: string) {
+  try {
+    const { error } = await supabase
+      .from("chatbot_chats")
+      .update({ is_completed: true })
+      .eq('id', chatId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error("Error ending chat:", error);
+    return { success: false, error };
+  }
 }

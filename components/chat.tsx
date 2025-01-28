@@ -12,6 +12,8 @@ import Messages from "./messages";
 import PromptBox from "./prompt";
 import UserForm from "./user-form";
 import { Chatbot } from "@/lib/types";
+import { FeedbackForm } from './FeedbackForm';
+import { endChat } from '@/app/actions';
 
 export default function Chat({
   userInfo,
@@ -22,6 +24,9 @@ export default function Chat({
 }) {
   const [isOpen, setIsOpen] = useState(true);
   const chatId = useRef(generateId());
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [isChatEnded, setIsChatEnded] = useState(false);
+  const [isChatStarted, setIsChatStarted] = useState(false);
 
   const { messages, input, handleInputChange, handleSubmit } = useChat({
     api: "/api/chat",
@@ -38,10 +43,25 @@ export default function Chat({
       systemPrompt: chatbot.systemPrompt,
       tools: chatbot.tools,
     },
+    onFinish: () => {
+      setIsChatStarted(true);
+    },
     onError: (error) => {
       console.error("Chat error:", error);
     },
   });
+
+  const handleEndChat = async () => {
+    try {
+      if (chatId.current) {
+        await endChat(chatId.current);
+        setIsChatEnded(true);
+        setShowFeedback(true);
+      }
+    } catch (error) {
+      console.error("Error ending chat:", error);
+    }
+  };
 
   if (!userInfo) {
     return (
@@ -62,7 +82,14 @@ export default function Chat({
         </Button>
       ) : (
         <Card className="w-full h-full md:w-[400px] md:h-[600px] rounded-none overflow-hidden md:rounded-3xl border-0 shadow-2xl transition-all">
-          <ChatHeader isOpen={isOpen} setIsOpen={setIsOpen} chatbot={chatbot} />
+          <ChatHeader 
+            isOpen={isOpen} 
+            setIsOpen={setIsOpen} 
+            chatbot={chatbot} 
+            onClose={handleEndChat}
+            hasMessages={isChatStarted}
+            onEndChat={handleEndChat}
+          />
           <CardContent className="p-0 flex flex-col h-[calc(100%-5rem)]">
             <Messages messages={messages} />
             <PromptBox
@@ -72,6 +99,29 @@ export default function Chat({
             />
           </CardContent>
         </Card>
+      )}
+      {showFeedback && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={() => {
+              setShowFeedback(false);
+              setIsOpen(false);
+            }}
+          />
+          <div 
+            className="fixed right-0 top-0 md:top-auto md:bottom-4 md:right-4 z-[60] w-full h-full md:h-auto md:w-[400px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <FeedbackForm
+              chatId={chatId.current}
+              onComplete={() => {
+                setShowFeedback(false);
+                setIsOpen(false);
+              }}
+            />
+          </div>
+        </>
       )}
     </div>
   );

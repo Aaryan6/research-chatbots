@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { generateId } from "ai";
 import { useChat } from "ai/react";
 import { MessageCircle } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import ChatHeader from "./chat-header";
 import Messages from "./messages";
 import PromptBox from "./prompt";
@@ -14,6 +14,7 @@ import UserForm from "./user-form";
 import { Chatbot } from "@/lib/types";
 import { FeedbackForm } from './FeedbackForm';
 import { endChat } from '@/app/actions';
+import supabase from '@/lib/db';
 
 export default function Chat({
   userInfo,
@@ -50,6 +51,25 @@ export default function Chat({
       console.error("Chat error:", error);
     },
   });
+
+  // Add this effect to load chat data including reactions
+  useEffect(() => {
+    async function loadChatData() {
+      if (chatId.current) {
+        const { data: chat } = await supabase
+          .from("chatbot_chats")
+          .select('*')
+          .eq('id', chatId.current)
+          .single();
+
+        if (chat?.message_reactions) {
+          // Update your state or pass to Messages component
+        }
+      }
+    }
+
+    loadChatData();
+  }, []);
 
   const handleEndChat = async () => {
     try {
@@ -91,7 +111,10 @@ export default function Chat({
             onEndChat={handleEndChat}
           />
           <CardContent className="p-0 flex flex-col h-[calc(100%-5rem)]">
-            <Messages messages={messages} />
+            <Messages 
+              messages={messages} 
+              chatId={chatId.current}
+            />
             <PromptBox
               input={input}
               handleInputChange={handleInputChange}

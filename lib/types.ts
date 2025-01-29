@@ -12,7 +12,7 @@ export type Chatbot = {
   route: string;
   name: string;
   image: string;
-  InitialMessage: string;
+  InitialMessage?: string;
   systemPrompt: string;
   tools?: ChatbotTools;
 };

@@ -7,7 +7,7 @@ import { z } from "zod";
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
-  const { messages, id, user_email, systemPrompt } = await req.json();
+  const { messages, id, user_email, systemPrompt, reaction } = await req.json();
 
   const result = streamText({
     model: openai("gpt-4o-mini"),
@@ -59,6 +59,7 @@ export async function POST(req: Request) {
               id: generateId(),
               role: "assistant",
               content: text,
+              reaction: "like",
             },
           ],
         });

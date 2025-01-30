@@ -7,12 +7,20 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { saveUserInfo } from "@/app/actions";
 import { useRouter } from "next/navigation";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 type FormData = {
   name: string;
   email: string;
-  location: string;
-  age: string;
+  group: string;
 };
 
 export default function UserForm() {
@@ -22,8 +30,7 @@ export default function UserForm() {
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
-    location: "",
-    age: "",
+    group: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,10 +51,7 @@ export default function UserForm() {
     }
 
     try {
-      const result = await saveUserInfo({
-        ...formData,
-        age: parseInt(formData.age) || 0,
-      });
+      const result = await saveUserInfo(formData);
 
       if (result.success) {
         // Refresh the page to show the chat
@@ -66,11 +70,11 @@ export default function UserForm() {
     <Card className="w-full">
       <CardHeader>
         <CardTitle className="text-xl font-semibold">
-          Tell us a bit more
+          Please fill in the following details
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input
@@ -97,26 +101,25 @@ export default function UserForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              name="location"
-              placeholder="Enter your location"
-              value={formData.location}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="age">Age</Label>
-            <Input
-              id="age"
-              name="age"
-              type="number"
-              placeholder="Enter your age"
-              value={formData.age}
-              onChange={handleChange}
-            />
+            <Label htmlFor="group">Group</Label>
+            <Select>
+              <SelectTrigger className="">
+                <SelectValue placeholder="Select a group" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Groups</SelectLabel>
+                  <SelectItem value="group1">Group 1</SelectItem>
+                  <SelectItem value="group2">Group 2</SelectItem>
+                  <SelectItem value="group3">Group 3</SelectItem>
+                  <SelectItem value="group4">Group 4</SelectItem>
+                  <SelectItem value="group5">Group 5</SelectItem>
+                  <SelectItem value="group6">Group 6</SelectItem>
+                  <SelectItem value="group7">Group 7</SelectItem>
+                  <SelectItem value="group8">Group 8</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </div>
 
           {error && <p className="text-sm text-red-500 text-center">{error}</p>}

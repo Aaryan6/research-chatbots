@@ -7,8 +7,7 @@ import { Message } from "ai";
 export type UserFormData = {
   name: string;
   email: string;
-  location: string;
-  age: number;
+  group: string;
 };
 
 export type ChatFormData = {
@@ -21,10 +20,9 @@ export type ChatFormData = {
 export type FeedbackData = {
   chatId: string;
   rating: number;
-  feedback: string;
 };
 
-export type ReactionType = 'like' | 'dislike';
+export type ReactionType = "like" | "dislike";
 
 export type MessageReaction = {
   messageId: string;
@@ -39,8 +37,7 @@ export async function saveUserInfo(data: UserFormData) {
       {
         name: data.name,
         email: data.email,
-        location: data.location,
-        age: data.age,
+        group: data.group,
       },
     ]);
 
@@ -48,8 +45,8 @@ export async function saveUserInfo(data: UserFormData) {
 
     // Save to cookies
     const cookieStore = cookies();
-    cookieStore.set("user_info", JSON.stringify(data), {
-      maxAge: 60 * 60 * 24 * 30, // 30 days
+    cookieStore.set("iitb_user", JSON.stringify(data), {
+      maxAge: 60 * 60 * 24 * 365, // 1 year
     });
 
     return { success: true };
@@ -77,10 +74,9 @@ export async function saveFeedback(data: FeedbackData) {
       .from("chatbot_chats")
       .update({
         feedback_rating: parseInt(data.rating.toString()),
-        feedback_text: data.feedback.trim(),
-        is_completed: true
+        is_completed: true,
       })
-      .eq('id', data.chatId);
+      .eq("id", data.chatId);
 
     if (error) throw error;
     return { success: true };
@@ -95,7 +91,7 @@ export async function endChat(chatId: string) {
     const { error } = await supabase
       .from("chatbot_chats")
       .update({ is_completed: true })
-      .eq('id', chatId);
+      .eq("id", chatId);
 
     if (error) throw error;
     return { success: true };
@@ -107,17 +103,17 @@ export async function endChat(chatId: string) {
 
 export async function saveMessageReaction(data: MessageReaction) {
   try {
-    console.log('Saving reaction:', data);
+    console.log("Saving reaction:", data);
 
     // First, check if a reaction exists
     const { data: existingReaction } = await supabase
       .from("message_reactions")
       .select()
-      .eq('message_id', data.messageId)
-      .eq('chat_id', data.chatId)
+      .eq("message_id", data.messageId)
+      .eq("chat_id", data.chatId)
       .single();
 
-    let action: 'deleted' | 'updated' | 'inserted' = 'inserted';
+    let action: "deleted" | "updated" | "inserted" = "inserted";
 
     // Handle the message_reactions table
     if (existingReaction) {
@@ -126,21 +122,21 @@ export async function saveMessageReaction(data: MessageReaction) {
         const { error: deleteError } = await supabase
           .from("message_reactions")
           .delete()
-          .eq('message_id', data.messageId)
-          .eq('chat_id', data.chatId);
+          .eq("message_id", data.messageId)
+          .eq("chat_id", data.chatId);
 
         if (deleteError) throw deleteError;
-        action = 'deleted';
+        action = "deleted";
       } else {
         // Update reaction
         const { error: updateError } = await supabase
           .from("message_reactions")
           .update({ reaction_type: data.reactionType })
-          .eq('message_id', data.messageId)
-          .eq('chat_id', data.chatId);
+          .eq("message_id", data.messageId)
+          .eq("chat_id", data.chatId);
 
         if (updateError) throw updateError;
-        action = 'updated';
+        action = "updated";
       }
     } else {
       // Insert new reaction
@@ -158,8 +154,8 @@ export async function saveMessageReaction(data: MessageReaction) {
     // Get all reactions for this chat to update chatbot_chats
     const { data: allReactions, error: reactionsError } = await supabase
       .from("message_reactions")
-      .select('*')
-      .eq('chat_id', data.chatId);
+      .select("*")
+      .eq("chat_id", data.chatId);
 
     if (reactionsError) throw reactionsError;
 
@@ -167,9 +163,9 @@ export async function saveMessageReaction(data: MessageReaction) {
     const { error: updateChatError } = await supabase
       .from("chatbot_chats")
       .update({
-        message_reactions: allReactions || []
+        message_reactions: allReactions || [],
       })
-      .eq('id', data.chatId);
+      .eq("id", data.chatId);
 
     if (updateChatError) throw updateChatError;
 

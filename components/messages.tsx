@@ -1,11 +1,11 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { Message } from "ai";
 import { useRef } from "react";
 import { useEffect } from "react";
 import RepairShopCards from "./repair-shops-cards";
 import { MessageReaction } from "./MessageReaction";
+import { RateCard } from "./rate-card";
 
 interface MessagesProps {
   messages: Message[];
@@ -13,7 +13,7 @@ interface MessagesProps {
   messageReactions?: any[];
 }
 
-export default function Messages({ messages, chatId, messageReactions = [] }: MessagesProps) {
+export default function Messages({ messages, chatId }: MessagesProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,42 +36,46 @@ export default function Messages({ messages, chatId, messageReactions = [] }: Me
             message.role === "assistant" ? "items-start" : "items-end"
           } relative z-10`}
         >
-          <div
-            className={`rounded-2xl px-4 py-2.5 max-w-[85%] shadow-sm border transition-all ${
-              message.role === "assistant"
-                ? "bg-white text-gray-900 rounded-bl-sm border-gray-100"
-                : "bg-gray-900 text-white rounded-br-sm border-gray-800"
-            }`}
-          >
-            {message.content}
-          </div>
-          {message.role === "assistant" && (
-            <div className="relative z-20">
-              <MessageReaction 
-                messageId={message.id} 
-                chatId={chatId}
-              />
+          {message.content && (
+            <>
+              <div
+                className={`rounded-2xl px-4 py-2.5 max-w-[85%] shadow-sm border transition-all ${
+                  message.role === "assistant"
+                    ? "bg-white text-gray-900 rounded-bl-sm border-gray-100"
+                    : "bg-gray-900 text-white rounded-br-sm border-gray-800"
+                }`}
+              >
+                {message.content}
+              </div>
+              {message.role === "assistant" && (
+                <div className="relative z-20">
+                  <MessageReaction messageId={message.id} chatId={chatId} />
+                </div>
+              )}
+            </>
+          )}
+          {message.toolInvocations && message.toolInvocations.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {message.toolInvocations.map((toolInvocation) => {
+                const { toolName, toolCallId, state } = toolInvocation;
+                if (toolName === "suggestRepairShops") {
+                  if (state === "result") {
+                    const { result } = toolInvocation;
+                    return (
+                      <RepairShopCards
+                        key={toolCallId}
+                        repairShops={JSON.parse(result)}
+                      />
+                    );
+                  }
+                } else if (toolName === "askForfeedback") {
+                  if (state === "result") {
+                    return <RateCard key={toolCallId} chatId={chatId} />;
+                  }
+                }
+              })}
             </div>
           )}
-          {message.toolInvocations &&
-            message.toolInvocations.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {message.toolInvocations.map((toolInvocation) => {
-                  const { toolName, toolCallId, state } = toolInvocation;
-                  if (toolName === "suggestRepairShops") {
-                    if (state === "result") {
-                      const { result } = toolInvocation;
-                      return (
-                        <RepairShopCards
-                          key={toolCallId}
-                          repairShops={JSON.parse(result)}
-                        />
-                      );
-                    }
-                  }
-                })}
-              </div>
-            )}
         </div>
       ))}
     </div>

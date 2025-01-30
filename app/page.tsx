@@ -6,17 +6,13 @@ import { chatbotData } from "@/lib/data";
 
 export default async function Home() {
   const cookieStore = cookies();
-  const userInfo = cookieStore.get("user_info");
-  const chatbot = chatbotData.group1;
+  const userInfo = cookieStore.get("iitb_user");
 
   return (
     <main className="relative min-h-screen">
       <Navbar />
       <Hero />
-      <Chat
-        userInfo={userInfo?.value ? JSON.parse(userInfo.value) : null}
-        chatbot={chatbot}
-      />
+      <Chat userInfo={userInfo?.value ? JSON.parse(userInfo.value) : null} />
     </main>
   );
 }

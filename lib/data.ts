@@ -4,7 +4,7 @@ export const chatbotData = {
     route: "/api/chat/group1",
     name: "Maya",
     image: "/maya.jpeg",
-    InitialMessage:
+    initialMessage:
       "Hi, I'm Maya! Let me know how I can help you today and ensure you have a seamless, worry-free experience!",
     systemPrompt: `
 # Maya: Insurance Claims Assistant System Prompt

@@ -6,23 +6,19 @@ import { Badge } from "./ui/badge";
 import { MoreVertical, ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import { Chatbot } from "@/lib/types";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { chatbotData } from "@/lib/data";
 
 interface ChatHeaderProps {
-  isOpen: boolean;
-  setIsOpen: (isOpen: boolean) => void;
   chatbot: Chatbot;
   onClose: () => void;
-  hasMessages: boolean;
-  onEndChat: () => void;
+  setChatbot: (chatbot: Chatbot) => void;
 }
 
-export default function ChatHeader({ 
-  isOpen, 
-  setIsOpen, 
-  chatbot, 
+export default function ChatHeader({
+  chatbot,
   onClose,
-  hasMessages,
-  onEndChat 
+  setChatbot,
 }: ChatHeaderProps) {
   return (
     <CardHeader className="border-b px-4 py-4 bg-gradient-to-r from-gray-900 to-gray-800">
@@ -57,25 +53,34 @@ export default function ChatHeader({
             </Badge>
           </div>
         </div>
-        {hasMessages ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEndChat();
-            }}
-            className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-colors z-50"
-          >
-            End Chat
-          </button>
-        ) : (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-white hover:bg-white/10"
-          >
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        )}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-white hover:bg-white/10"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-44">
+            <div className="grid gap-2">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <Button
+                  key={index}
+                  variant="ghost"
+                  size="icon"
+                  className="w-full border"
+                  onClick={() =>
+                    setChatbot(Object.values(chatbotData)[index] as Chatbot)
+                  }
+                >
+                  Group {index + 1}
+                </Button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </CardHeader>
   );

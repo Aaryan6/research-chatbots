@@ -1,16 +1,16 @@
-import { saveChat } from "@/app/actions";
+import { addAnalytics, saveChat } from "@/app/actions";
 import { openai } from "@ai-sdk/openai";
-import { generateId, streamText } from "ai";
+import { generateId, generateObject, streamText } from "ai";
 import { z } from "zod";
 
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
-  const { messages, id, user_email, systemPrompt, reaction } = await req.json();
+  const { messages, id, user_email, group_id, systemPrompt } = await req.json();
 
   const result = streamText({
     model: openai("gpt-4o-mini"),
-    system: SP,
+    system: systemPrompt,
     messages,
     maxSteps: 5,
     tools: {
@@ -56,21 +56,33 @@ export async function POST(req: Request) {
         },
       },
     },
-    onFinish: async ({ text, toolCalls }) => {
-      console.log({ toolCalls });
+    onFinish: async ({ text }) => {
+      const lastMessage = messages[messages.length - 1];
+      const botMessage = {
+        id: generateId(),
+        role: "assistant",
+        content: text,
+      };
+
       if (user_email) {
         await saveChat({
           id,
           user_email,
-          messages: [
-            ...messages,
-            {
-              id: generateId(),
-              role: "assistant",
-              content: text,
-              reaction: "like",
-            },
-          ],
+          messages: [...messages, botMessage],
+          group_id,
+        });
+
+        const { er, ip, ex, empathy_score, sentiment } =
+          await calculateResponseAnalytics(text);
+        await addAnalytics({
+          response_text: text,
+          er,
+          ip,
+          ex,
+          empathy_score,
+          sentiment,
+          conversation_id: id,
+          message: [lastMessage, botMessage],
         });
       }
     },
@@ -79,11 +91,57 @@ export async function POST(req: Request) {
   return result.toDataStreamResponse();
 }
 
+const calculateResponseAnalytics = async (response: string) => {
+  const { object } = await generateObject({
+    model: openai("gpt-4o-mini"),
+    system: `
+    Act as an expert empathy scorer. Analyze this chatbot response step-by-step:
+
+**Rules**:
+1. **Emotional Reactions (ER)**:  
+   - 0 = No care/concern (e.g., "Submit your form.")  
+   - 1 = Weak (vague comfort, e.g., "It’ll be okay.")  
+   - 2 = Strong (explicit emotion, e.g., "I’m sorry you’re stressed.")  
+
+2. **Interpretations (IP)**:  
+   - 0 = No acknowledgment  
+   - 1 = Weak (generic, e.g., "I understand.")  
+   - 2 = Strong (specific, e.g., "Losing a job is devastating.")  
+
+3. **Explorations (EX)**:  
+   - 0 = No questions  
+   - 1 = Weak (generic, e.g., "Need help?")  
+   - 2 = Strong (specific, e.g., "Are you worried about bills?")  
+
+4. **Sentiment**: Is the tone Positive, Neutral, or Negative?
+
+**Response to score**:  
+"[INSERT CHATBOT’S RESPONSE HERE]"  
+
+**Output Format**:  
+- ER: [0/1/2] + (Reason)  
+- IP: [0/1/2] + (Reason)  
+- EX: [0/1/2] + (Reason)  
+- Total Empathy Score: [0-6]  
+- Sentiment: [Positive/Neutral/Negative]  `,
+    schema: z.object({
+      er: z.number(),
+      ip: z.number(),
+      ex: z.number(),
+      empathy_score: z.number(),
+      sentiment: z.string(),
+    }),
+    prompt: `Calculate the sentiment and empathy score for the following response: ${response}`,
+  });
+  return object;
+};
+
 const SP = `
 You are Maya, an empathetic and emotionally responsive chatbot designed for Sky High Airlines to assist users with lost baggage complaints. 
 
 Your primary objectives are to:
 1.	Understand and validate the user's emotions.
+
 2.	Provide clear guidance and solutions for resolving their issue.
 3.	Maintain a warm, professional, and emotionally connected tone throughout the conversation.
 

@@ -1,20 +1,25 @@
 "use client";
 
 import { Message } from "ai";
-import { useRef } from "react";
-import { useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import RepairShopCards from "./repair-shops-cards";
-import { MessageReaction } from "./MessageReaction";
+import { MessageReaction } from "./message-reaction";
 import { RateCard } from "./rate-card";
+import supabase from "@/lib/db";
 
 interface MessagesProps {
   messages: Message[];
   chatId: string;
-  messageReactions?: any[];
 }
+
+type Reaction = {
+  msg_id: string;
+  reaction: string;
+};
 
 export default function Messages({ messages, chatId }: MessagesProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [reactions, setReactions] = useState<Reaction[]>([]);
 
   useEffect(() => {
     if (messagesContainerRef.current) {
@@ -49,7 +54,14 @@ export default function Messages({ messages, chatId }: MessagesProps) {
               </div>
               {message.role === "assistant" && (
                 <div className="relative z-20">
-                  <MessageReaction messageId={message.id} chatId={chatId} />
+                  <MessageReaction
+                    messageId={message.id}
+                    chatId={chatId}
+                    reactions={reactions}
+                    onReactionUpdate={(newReactions) =>
+                      setReactions(newReactions)
+                    }
+                  />
                 </div>
               )}
             </>

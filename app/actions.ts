@@ -3,11 +3,12 @@
 import { cookies } from "next/headers";
 import supabase from "@/lib/db";
 import { Message } from "ai";
+import { AnalyticsData } from "@/lib/types";
 
 export type UserFormData = {
   name: string;
   email: string;
-  group: string;
+  group: number;
 };
 
 export type ChatFormData = {
@@ -15,6 +16,7 @@ export type ChatFormData = {
   user_email: string;
   messages: Message[];
   created_at?: string;
+  group_id: number;
 };
 
 export type FeedbackData = {
@@ -33,13 +35,11 @@ export type MessageReaction = {
 export async function saveUserInfo(data: UserFormData) {
   try {
     // Save to Supabase
-    const { error } = await supabase.from("chatbot_users").insert([
-      {
-        name: data.name,
-        email: data.email,
-        group: data.group,
-      },
-    ]);
+    const { error } = await supabase.from("iitb_users").insert({
+      name: data.name,
+      email: data.email,
+      group: data.group,
+    });
 
     if (error) throw error;
 
@@ -56,11 +56,33 @@ export async function saveUserInfo(data: UserFormData) {
   }
 }
 
+export async function getUserInfo(email: string) {
+  const { data, error } = await supabase
+    .from("iitb_users")
+    .select("*")
+    .eq("email", email);
+
+  if (error) {
+    const cookieStore = cookies();
+    cookieStore.delete("iitb_user");
+    throw error;
+  }
+
+  if (!data || data.length === 0) {
+    const cookieStore = cookies();
+    cookieStore.delete("iitb_user");
+    return null;
+  }
+
+  return data[0];
+}
+
 export async function saveChat(data: ChatFormData) {
-  const { error } = await supabase.from("chatbot_chats").upsert({
+  const { error } = await supabase.from("iitb_conversations").upsert({
     id: data.id,
     user_email: data.user_email,
     messages: data.messages,
+    group_id: data.group_id,
   });
 
   if (error) throw error;
@@ -71,7 +93,7 @@ export async function saveChat(data: ChatFormData) {
 export async function saveFeedback(data: FeedbackData) {
   try {
     const { error } = await supabase
-      .from("chatbot_chats")
+      .from("iitb_conversations")
       .update({
         feedback_rating: parseInt(data.rating.toString()),
         is_completed: true,
@@ -89,7 +111,7 @@ export async function saveFeedback(data: FeedbackData) {
 export async function endChat(chatId: string) {
   try {
     const { error } = await supabase
-      .from("chatbot_chats")
+      .from("iitb_conversations")
       .update({ is_completed: true })
       .eq("id", chatId);
 
@@ -103,8 +125,6 @@ export async function endChat(chatId: string) {
 
 export async function saveMessageReaction(data: MessageReaction) {
   try {
-    console.log("Saving reaction:", data);
-
     // First, check if a reaction exists
     const { data: existingReaction } = await supabase
       .from("message_reactions")
@@ -151,7 +171,7 @@ export async function saveMessageReaction(data: MessageReaction) {
       if (insertError) throw insertError;
     }
 
-    // Get all reactions for this chat to update chatbot_chats
+    // Get all reactions for this chat to update iitb_conversations
     const { data: allReactions, error: reactionsError } = await supabase
       .from("message_reactions")
       .select("*")
@@ -159,9 +179,9 @@ export async function saveMessageReaction(data: MessageReaction) {
 
     if (reactionsError) throw reactionsError;
 
-    // Update chatbot_chats with the reactions
+    // Update iitb_conversations with the reactions
     const { error: updateChatError } = await supabase
-      .from("chatbot_chats")
+      .from("iitb_conversations")
       .update({
         message_reactions: allReactions || [],
       })
@@ -172,6 +192,137 @@ export async function saveMessageReaction(data: MessageReaction) {
     return { success: true, action };
   } catch (error) {
     console.error("Error saving message reaction:", error);
+    return { success: false, error };
+  }
+}
+
+export async function addAnalytics(data: AnalyticsData) {
+  // First insert the new empathy score
+  const { error: insertError } = await supabase
+    .from("iitb_chatbot_empathy_scores")
+    .insert(data);
+
+  if (insertError) throw insertError;
+
+  // Fetch all empathy scores for this conversation
+  const { data: allScores, error: fetchError } = await supabase
+    .from("iitb_chatbot_empathy_scores")
+    .select("er, ip, ex, empathy_score, sentiment")
+    .eq("conversation_id", data.conversation_id);
+
+  if (fetchError) throw fetchError;
+
+  type SentimentCounts = { [key: string]: number };
+  type Averages = {
+    er: number;
+    ip: number;
+    ex: number;
+    empathy_score: number;
+    sentiment_counts: SentimentCounts;
+  };
+
+  // Calculate averages
+  const averages = allScores.reduce(
+    (acc: Averages, score) => {
+      return {
+        er: acc.er + score.er,
+        ip: acc.ip + score.ip,
+        ex: acc.ex + score.ex,
+        empathy_score: acc.empathy_score + score.empathy_score,
+        sentiment_counts: {
+          ...acc.sentiment_counts,
+          [score.sentiment]: (acc.sentiment_counts[score.sentiment] || 0) + 1,
+        },
+      };
+    },
+    { er: 0, ip: 0, ex: 0, empathy_score: 0, sentiment_counts: {} }
+  );
+
+  const count = allScores.length;
+  const avgEr = averages.er / count;
+  const avgIp = averages.ip / count;
+  const avgEx = averages.ex / count;
+  const avgEmpathyScore = averages.empathy_score / count;
+
+  // Get most frequent sentiment
+  const entries = Object.entries(averages.sentiment_counts) as [
+    string,
+    number
+  ][];
+  const dominantSentiment =
+    entries.length > 0
+      ? entries.reduce((a, b) => (a[1] > b[1] ? a : b), entries[0])[0]
+      : "Neutral"; // Default sentiment if no entries exist
+
+  // Update the conversations table with averages
+  const { error: updateError } = await supabase
+    .from("iitb_conversations")
+    .update({
+      avg_er: avgEr,
+      avg_ip: avgIp,
+      avg_ex: avgEx,
+      avg_empathy_score: avgEmpathyScore,
+      dominant_sentiment: dominantSentiment,
+    })
+    .eq("id", data.conversation_id);
+
+  if (updateError) throw updateError;
+
+  return { success: true };
+}
+
+export async function deleteUserCookie() {
+  const cookieStore = cookies();
+  cookieStore.delete("iitb_user");
+}
+
+export async function addReaction(data: MessageReaction) {
+  try {
+    // First get the current conversation to access existing reactions
+    const { data: currentConversation, error: fetchError } = await supabase
+      .from("iitb_conversations")
+      .select("reactions")
+      .eq("id", data.chatId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    let updatedReactions = currentConversation?.reactions || [];
+
+    // Check if reaction already exists
+    const existingReactionIndex = updatedReactions.findIndex(
+      (r: { msg_id: string; reaction: string }) => r.msg_id === data.messageId
+    );
+
+    if (existingReactionIndex !== -1) {
+      // If same reaction, remove it (toggle off)
+      if (
+        updatedReactions[existingReactionIndex].reaction === data.reactionType
+      ) {
+        updatedReactions.splice(existingReactionIndex, 1);
+      } else {
+        // If different reaction, update it
+        updatedReactions[existingReactionIndex].reaction = data.reactionType;
+      }
+    } else {
+      // Add new reaction
+      updatedReactions.push({
+        msg_id: data.messageId,
+        reaction: data.reactionType,
+      });
+    }
+
+    // Update the conversation with new reactions
+    const { error: updateError } = await supabase
+      .from("iitb_conversations")
+      .update({ reactions: updatedReactions })
+      .eq("id", data.chatId);
+
+    if (updateError) throw updateError;
+
+    return { success: true, reactions: updatedReactions };
+  } catch (error) {
+    console.error("Error managing reaction:", error);
     return { success: false, error };
   }
 }

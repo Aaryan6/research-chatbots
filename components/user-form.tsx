@@ -20,7 +20,7 @@ import {
 type FormData = {
   name: string;
   email: string;
-  group: string;
+  group: number;
 };
 
 export default function UserForm() {
@@ -30,12 +30,16 @@ export default function UserForm() {
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
-    group: "",
+    group: 1,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === "group") {
+      setFormData((prev) => ({ ...prev, [name]: parseInt(value) }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,14 +113,14 @@ export default function UserForm() {
               <SelectContent>
                 <SelectGroup>
                   <SelectLabel>Groups</SelectLabel>
-                  <SelectItem value="group1">Group 1</SelectItem>
-                  <SelectItem value="group2">Group 2</SelectItem>
-                  <SelectItem value="group3">Group 3</SelectItem>
-                  <SelectItem value="group4">Group 4</SelectItem>
-                  <SelectItem value="group5">Group 5</SelectItem>
-                  <SelectItem value="group6">Group 6</SelectItem>
-                  <SelectItem value="group7">Group 7</SelectItem>
-                  <SelectItem value="group8">Group 8</SelectItem>
+                  <SelectItem value="1">Group 1</SelectItem>
+                  <SelectItem value="2">Group 2</SelectItem>
+                  <SelectItem value="3">Group 3</SelectItem>
+                  <SelectItem value="4">Group 4</SelectItem>
+                  <SelectItem value="5">Group 5</SelectItem>
+                  <SelectItem value="6">Group 6</SelectItem>
+                  <SelectItem value="7">Group 7</SelectItem>
+                  <SelectItem value="8">Group 8</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>

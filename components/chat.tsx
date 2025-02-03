@@ -3,30 +3,22 @@
 import { endChat, UserFormData } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Chatbot } from "@/lib/types";
+import { chatbotData } from "@/lib/data";
 import { generateId } from "ai";
 import { useChat } from "ai/react";
 import { MessageCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import ChatHeader from "./chat-header";
 import Messages from "./messages";
 import PromptBox from "./prompt";
 import UserForm from "./user-form";
-import { chatbotData } from "@/lib/data";
-import { useRouter } from "next/navigation";
-
-type ChatbotProps = {
-  route: string;
-  name: string;
-  image: string;
-  initialMessage?: string;
-  systemPrompt: string;
-};
+import { Chatbot } from "@/lib/types";
 
 export default function Chat({ userInfo }: { userInfo: UserFormData | null }) {
   const [isOpen, setIsOpen] = useState(true);
   const chatId = useRef(generateId());
-  const [chatbot, setChatbot] = useState<ChatbotProps>(chatbotData.group1);
+  const [chatbot, setChatbot] = useState<Chatbot>(chatbotData.group1);
   const router = useRouter();
 
   const { messages, input, handleInputChange, handleSubmit, setMessages } =
@@ -43,10 +35,7 @@ export default function Chat({ userInfo }: { userInfo: UserFormData | null }) {
         user_email: userInfo?.email,
         id: chatId.current,
         systemPrompt: chatbot.systemPrompt,
-      },
-      onFinish: () => {},
-      onError: (error) => {
-        console.error("Chat error:", error);
+        group_id: chatbot.id,
       },
     });
 
@@ -60,9 +49,9 @@ export default function Chat({ userInfo }: { userInfo: UserFormData | null }) {
     }
   };
 
-  const handleSetChatbot = (chatbot: ChatbotProps) => {
-    console.log({ chatbot });
+  const handleSetChatbot = (chatbot: Chatbot) => {
     router.refresh();
+    chatId.current = generateId();
     setMessages([
       {
         id: generateId(),

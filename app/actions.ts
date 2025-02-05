@@ -32,6 +32,31 @@ export type MessageReaction = {
   reactionType: ReactionType;
 };
 
+export type Conversation = {
+  id: string;
+  user_email: string;
+  messages: Message[];
+  avg_empathy_score: number;
+  dominant_sentiment: string;
+  created_at: string;
+  reactions: { msg_id: string; reaction: "like" | "dislike" }[];
+};
+
+export type EmpathyScoreData = {
+  date: string;
+  score: number;
+};
+
+export type ReactionData = {
+  name: ReactionType;
+  value: number;
+};
+
+export type SentimentData = {
+  name: string;
+  value: number;
+};
+
 export async function saveUserInfo(data: UserFormData) {
   try {
     // Save to Supabase
@@ -324,5 +349,182 @@ export async function addReaction(data: MessageReaction) {
   } catch (error) {
     console.error("Error managing reaction:", error);
     return { success: false, error };
+  }
+}
+
+export async function getConversations(groupId: string = "overall") {
+  try {
+    let query = supabase
+      .from("iitb_conversations")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (groupId !== "overall") {
+      query = query.eq("group_id", groupId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return data as Conversation[];
+  } catch (error) {
+    console.error("Error fetching conversations:", error);
+    return [];
+  }
+}
+
+export async function getEmpathyScoresTrend(groupId: string = "overall") {
+  try {
+    let query = supabase
+      .from("iitb_conversations")
+      .select("created_at, avg_empathy_score");
+
+    if (groupId !== "overall") {
+      query = query.eq("group_id", groupId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Process data to get daily averages
+    const dailyScores: { [key: string]: { sum: number; count: number } } = {};
+    data.forEach((conv) => {
+      const date = new Date(conv.created_at).toISOString().split("T")[0];
+      if (!dailyScores[date]) {
+        dailyScores[date] = { sum: 0, count: 0 };
+      }
+      dailyScores[date].sum += conv.avg_empathy_score || 0;
+      dailyScores[date].count += 1;
+    });
+
+    return Object.entries(dailyScores)
+      .map(([date, { sum, count }]) => ({
+        date,
+        score: Number((sum / count).toFixed(1)),
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  } catch (error) {
+    console.error("Error fetching empathy scores:", error);
+    return [];
+  }
+}
+
+export async function getReactionStats(groupId: string = "overall") {
+  try {
+    let query = supabase
+      .from("message_reactions")
+      .select("reaction_type, conversations!inner(group_id)");
+
+    if (groupId !== "overall") {
+      query = query.eq("conversations.group_id", groupId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const reactionCounts = {
+      like: 0,
+      dislike: 0,
+    } as Record<ReactionType, number>;
+
+    data.forEach((reaction) => {
+      if (reaction.reaction_type in reactionCounts) {
+        reactionCounts[reaction.reaction_type as ReactionType]++;
+      }
+    });
+
+    return Object.entries(reactionCounts).map(([name, value]) => ({
+      name: name as ReactionType,
+      value,
+    }));
+  } catch (error) {
+    console.error("Error fetching reaction stats:", error);
+    return [];
+  }
+}
+
+export async function getSentimentStats(groupId: string = "overall") {
+  try {
+    let query = supabase
+      .from("iitb_conversations")
+      .select("dominant_sentiment");
+
+    if (groupId !== "overall") {
+      query = query.eq("group_id", groupId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const sentimentCounts: { [key: string]: number } = {
+      "very negative": 0,
+      negative: 0,
+      neutral: 0,
+      positive: 0,
+      "very positive": 0,
+    };
+
+    data.forEach((conv) => {
+      if (conv.dominant_sentiment) {
+        sentimentCounts[conv.dominant_sentiment.toLowerCase()] =
+          (sentimentCounts[conv.dominant_sentiment.toLowerCase()] || 0) + 1;
+      }
+    });
+
+    return Object.entries(sentimentCounts).map(([name, value]) => ({
+      name,
+      value,
+    }));
+  } catch (error) {
+    console.error("Error fetching sentiment stats:", error);
+    return [];
+  }
+}
+
+export async function getDashboardStats(groupId: string = "overall") {
+  try {
+    let query = supabase.from("iitb_conversations").select("*");
+
+    if (groupId !== "overall") {
+      query = query.eq("group_id", groupId);
+    }
+
+    const { data: conversations, error } = await query;
+
+    if (error) throw error;
+
+    const totalConversations = conversations.length;
+    const avgEmpathyScore =
+      conversations.reduce(
+        (sum, conv) => sum + (conv.avg_empathy_score || 0),
+        0
+      ) / (totalConversations || 1);
+
+    const positiveSentiments = conversations.filter(
+      (conv) =>
+        conv.dominant_sentiment === "positive" ||
+        conv.dominant_sentiment === "very positive"
+    ).length;
+    const positiveSentimentPercentage =
+      Math.round((positiveSentiments / totalConversations) * 100) || 0;
+
+    // Calculate average response time (placeholder - implement based on your data structure)
+    const avgResponseTime = 2.5; // This should be calculated based on actual response time data
+
+    return {
+      totalConversations,
+      avgEmpathyScore: avgEmpathyScore.toFixed(1),
+      positiveSentimentPercentage,
+      avgResponseTime,
+    };
+  } catch (error) {
+    console.error("Error fetching dashboard stats:", error);
+    return {
+      totalConversations: 0,
+      avgEmpathyScore: "0",
+      positiveSentimentPercentage: 0,
+      avgResponseTime: 0,
+    };
   }
 }

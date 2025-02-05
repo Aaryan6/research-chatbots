@@ -30,3 +30,20 @@ export type AnalyticsData = {
   created_at?: string;
   message: Message[];
 };
+
+export type Conversations = {
+  id: string;
+  messages: Message[];
+  group_id: string;
+  user_email: string;
+  avg_er: number;
+  avg_ip: number;
+  avg_ex: number;
+  avg_empathy_score: number;
+  dominant_sentiment: string;
+  reactions: {
+    msg_id: string;
+    reaction: "like" | "dislike";
+  }[];
+  created_at: string;
+};

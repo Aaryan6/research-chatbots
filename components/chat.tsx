@@ -4,6 +4,7 @@ import { endChat, UserFormData } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { chatbotData } from "@/lib/data";
+import { Chatbot } from "@/lib/types";
 import { generateId } from "ai";
 import { useChat } from "ai/react";
 import { MessageCircle } from "lucide-react";
@@ -13,7 +14,6 @@ import ChatHeader from "./chat-header";
 import Messages from "./messages";
 import PromptBox from "./prompt";
 import UserForm from "./user-form";
-import { Chatbot } from "@/lib/types";
 
 export default function Chat({ userInfo }: { userInfo: UserFormData | null }) {
   const [isOpen, setIsOpen] = useState(true);
@@ -24,6 +24,7 @@ export default function Chat({ userInfo }: { userInfo: UserFormData | null }) {
   const { messages, input, handleInputChange, handleSubmit, setMessages } =
     useChat({
       api: "/api/chat",
+      sendExtraMessageFields: true,
       initialMessages: [
         {
           id: generateId(),

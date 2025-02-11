@@ -28,8 +28,6 @@ function MessageReactionDisplay({
   messageId: string;
   reactions: { msg_id: string; reaction: "like" | "dislike" }[];
 }) {
-  console.log({ reactions });
-  console.log({ messageId });
   const reaction = reactions?.find((r) => r.msg_id === messageId);
   if (!reaction) return null;
 
@@ -89,6 +87,25 @@ function ConversationDialog({
   );
 }
 
+function calculateTotalWordCount(messages: Message[]): number {
+  return messages.reduce((total, message) => {
+    const words = message.content
+      .split(/\s+/)
+      .filter((word) => word.length > 0);
+    return total + words.length;
+  }, 0);
+}
+
+function calculateTurns(messages: Message[]): number {
+  let turns = 0;
+  for (let i = 0; i < messages.length - 1; i++) {
+    if (messages[i].role === "user" && messages[i + 1].role === "assistant") {
+      turns++;
+    }
+  }
+  return turns;
+}
+
 interface ConversationsTableProps {
   groupId: string;
 }
@@ -116,6 +133,8 @@ export function ConversationsTable({ groupId }: ConversationsTableProps) {
         <TableRow>
           <TableHead>User</TableHead>
           <TableHead>Messages</TableHead>
+          <TableHead>Turns</TableHead>
+          <TableHead>Word Count</TableHead>
           <TableHead>Empathy Score</TableHead>
           <TableHead>Sentiment</TableHead>
           <TableHead>Date</TableHead>
@@ -127,6 +146,10 @@ export function ConversationsTable({ groupId }: ConversationsTableProps) {
           <TableRow key={conversation.id}>
             <TableCell>{conversation.user_email}</TableCell>
             <TableCell>{conversation.messages.length}</TableCell>
+            <TableCell>{calculateTurns(conversation.messages)}</TableCell>
+            <TableCell>
+              {calculateTotalWordCount(conversation.messages)}
+            </TableCell>
             <TableCell>
               {conversation.avg_empathy_score?.toFixed(1) || "N/A"}
             </TableCell>

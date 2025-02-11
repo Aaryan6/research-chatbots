@@ -412,12 +412,10 @@ export async function getEmpathyScoresTrend(groupId: string = "overall") {
 
 export async function getReactionStats(groupId: string = "overall") {
   try {
-    let query = supabase
-      .from("message_reactions")
-      .select("reaction_type, conversations!inner(group_id)");
+    let query = supabase.from("iitb_conversations").select("reactions");
 
     if (groupId !== "overall") {
-      query = query.eq("conversations.group_id", groupId);
+      query = query.eq("group_id", groupId);
     }
 
     const { data, error } = await query;
@@ -428,16 +426,24 @@ export async function getReactionStats(groupId: string = "overall") {
       dislike: 0,
     } as Record<ReactionType, number>;
 
-    data.forEach((reaction) => {
-      if (reaction.reaction_type in reactionCounts) {
-        reactionCounts[reaction.reaction_type as ReactionType]++;
+    data.forEach((conversation) => {
+      if (conversation.reactions && Array.isArray(conversation.reactions)) {
+        conversation.reactions.forEach((reactionItem) => {
+          if (reactionItem.reaction in reactionCounts) {
+            reactionCounts[reactionItem.reaction as ReactionType]++;
+          }
+        });
       }
     });
 
-    return Object.entries(reactionCounts).map(([name, value]) => ({
-      name: name as ReactionType,
-      value,
-    }));
+    const reactionStats = Object.entries(reactionCounts).map(
+      ([name, value]) => ({
+        name: name as ReactionType,
+        value,
+      })
+    );
+
+    return reactionStats;
   } catch (error) {
     console.error("Error fetching reaction stats:", error);
     return [];

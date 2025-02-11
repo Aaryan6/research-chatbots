@@ -17,6 +17,7 @@ import UserForm from "./user-form";
 
 export default function Chat({ userInfo }: { userInfo: UserFormData | null }) {
   const [isOpen, setIsOpen] = useState(true);
+  const [showFeedback, setShowFeedback] = useState(false);
   const chatId = useRef(generateId());
   const [chatbot, setChatbot] = useState<Chatbot>(chatbotData.group1);
   const router = useRouter();
@@ -37,6 +38,9 @@ export default function Chat({ userInfo }: { userInfo: UserFormData | null }) {
         id: chatId.current,
         systemPrompt: chatbot.systemPrompt,
         group_id: chatbot.id,
+      },
+      onError(error) {
+        console.error("Error:", error);
       },
     });
 
@@ -88,11 +92,16 @@ export default function Chat({ userInfo }: { userInfo: UserFormData | null }) {
             setChatbot={handleSetChatbot}
           />
           <CardContent className="p-0 flex flex-col h-[calc(100%-5rem)]">
-            <Messages messages={messages} chatId={chatId.current} />
+            <Messages
+              messages={messages}
+              chatId={chatId.current}
+              showFeedback={showFeedback}
+            />
             <PromptBox
               input={input}
               handleInputChange={handleInputChange}
               handleSubmit={handleSubmit}
+              onFeedbackClick={() => setShowFeedback(!showFeedback)}
             />
           </CardContent>
         </Card>

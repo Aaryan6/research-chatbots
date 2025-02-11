@@ -10,6 +10,7 @@ import supabase from "@/lib/db";
 interface MessagesProps {
   messages: Message[];
   chatId: string;
+  showFeedback: boolean;
 }
 
 type Reaction = {
@@ -17,7 +18,11 @@ type Reaction = {
   reaction: string;
 };
 
-export default function Messages({ messages, chatId }: MessagesProps) {
+export default function Messages({
+  messages,
+  chatId,
+  showFeedback,
+}: MessagesProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [reactions, setReactions] = useState<Reaction[]>([]);
 
@@ -26,7 +31,7 @@ export default function Messages({ messages, chatId }: MessagesProps) {
       messagesContainerRef.current.scrollTop =
         messagesContainerRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, showFeedback]);
 
   return (
     <div
@@ -90,6 +95,11 @@ export default function Messages({ messages, chatId }: MessagesProps) {
           )}
         </div>
       ))}
+      {showFeedback && (
+        <div className="w-full max-w-sm mx-auto">
+          <RateCard chatId={chatId} />
+        </div>
+      )}
     </div>
   );
 }

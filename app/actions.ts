@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import supabase from "@/lib/db";
 import { Message } from "ai";
-import { AnalyticsData } from "@/lib/types";
+import { AnalyticsData, Conversations } from "@/lib/types";
 
 export type UserFormData = {
   name: string;
@@ -17,11 +17,13 @@ export type ChatFormData = {
   messages: Message[];
   created_at?: string;
   group_id: number;
+  updated_at?: string;
 };
 
 export type FeedbackData = {
   chatId: string;
   rating: number;
+  feedback_message: string;
 };
 
 export type ReactionType = "like" | "dislike";
@@ -108,6 +110,7 @@ export async function saveChat(data: ChatFormData) {
     user_email: data.user_email,
     messages: data.messages,
     group_id: data.group_id,
+    updated_at: data.updated_at,
   });
 
   if (error) throw error;
@@ -121,7 +124,7 @@ export async function saveFeedback(data: FeedbackData) {
       .from("iitb_conversations")
       .update({
         feedback_rating: parseInt(data.rating.toString()),
-        is_completed: true,
+        feedback_message: data.feedback_message,
       })
       .eq("id", data.chatId);
 
@@ -148,79 +151,6 @@ export async function endChat(chatId: string) {
   }
 }
 
-export async function saveMessageReaction(data: MessageReaction) {
-  try {
-    // First, check if a reaction exists
-    const { data: existingReaction } = await supabase
-      .from("message_reactions")
-      .select()
-      .eq("message_id", data.messageId)
-      .eq("chat_id", data.chatId)
-      .single();
-
-    let action: "deleted" | "updated" | "inserted" = "inserted";
-
-    // Handle the message_reactions table
-    if (existingReaction) {
-      if (existingReaction.reaction_type === data.reactionType) {
-        // Delete reaction
-        const { error: deleteError } = await supabase
-          .from("message_reactions")
-          .delete()
-          .eq("message_id", data.messageId)
-          .eq("chat_id", data.chatId);
-
-        if (deleteError) throw deleteError;
-        action = "deleted";
-      } else {
-        // Update reaction
-        const { error: updateError } = await supabase
-          .from("message_reactions")
-          .update({ reaction_type: data.reactionType })
-          .eq("message_id", data.messageId)
-          .eq("chat_id", data.chatId);
-
-        if (updateError) throw updateError;
-        action = "updated";
-      }
-    } else {
-      // Insert new reaction
-      const { error: insertError } = await supabase
-        .from("message_reactions")
-        .insert({
-          message_id: data.messageId,
-          chat_id: data.chatId,
-          reaction_type: data.reactionType,
-        });
-
-      if (insertError) throw insertError;
-    }
-
-    // Get all reactions for this chat to update iitb_conversations
-    const { data: allReactions, error: reactionsError } = await supabase
-      .from("message_reactions")
-      .select("*")
-      .eq("chat_id", data.chatId);
-
-    if (reactionsError) throw reactionsError;
-
-    // Update iitb_conversations with the reactions
-    const { error: updateChatError } = await supabase
-      .from("iitb_conversations")
-      .update({
-        message_reactions: allReactions || [],
-      })
-      .eq("id", data.chatId);
-
-    if (updateChatError) throw updateChatError;
-
-    return { success: true, action };
-  } catch (error) {
-    console.error("Error saving message reaction:", error);
-    return { success: false, error };
-  }
-}
-
 export async function addAnalytics(data: AnalyticsData) {
   // First insert the new empathy score
   const { error: insertError } = await supabase
@@ -232,7 +162,7 @@ export async function addAnalytics(data: AnalyticsData) {
   // Fetch all empathy scores for this conversation
   const { data: allScores, error: fetchError } = await supabase
     .from("iitb_chatbot_empathy_scores")
-    .select("er, ip, ex, empathy_score, sentiment")
+    .select("er, ip, ex, empathy_score, sentiment, error_rate, error_messages")
     .eq("conversation_id", data.conversation_id);
 
   if (fetchError) throw fetchError;
@@ -243,6 +173,8 @@ export async function addAnalytics(data: AnalyticsData) {
     ip: number;
     ex: number;
     empathy_score: number;
+    error_rate: number;
+    error_messages: string[];
     sentiment_counts: SentimentCounts;
   };
 
@@ -254,13 +186,26 @@ export async function addAnalytics(data: AnalyticsData) {
         ip: acc.ip + score.ip,
         ex: acc.ex + score.ex,
         empathy_score: acc.empathy_score + score.empathy_score,
+        error_rate: (acc.error_rate || 0) + score.error_rate,
+        error_messages: [
+          ...acc.error_messages,
+          ...(score.error_messages || []),
+        ],
         sentiment_counts: {
           ...acc.sentiment_counts,
           [score.sentiment]: (acc.sentiment_counts[score.sentiment] || 0) + 1,
         },
       };
     },
-    { er: 0, ip: 0, ex: 0, empathy_score: 0, sentiment_counts: {} }
+    {
+      er: 0,
+      ip: 0,
+      ex: 0,
+      empathy_score: 0,
+      error_rate: 0,
+      error_messages: [],
+      sentiment_counts: {},
+    }
   );
 
   const count = allScores.length;
@@ -268,6 +213,7 @@ export async function addAnalytics(data: AnalyticsData) {
   const avgIp = averages.ip / count;
   const avgEx = averages.ex / count;
   const avgEmpathyScore = averages.empathy_score / count;
+  const avgErrorRate = averages.error_rate / count;
 
   // Get most frequent sentiment
   const entries = Object.entries(averages.sentiment_counts) as [
@@ -279,6 +225,9 @@ export async function addAnalytics(data: AnalyticsData) {
       ? entries.reduce((a, b) => (a[1] > b[1] ? a : b), entries[0])[0]
       : "Neutral"; // Default sentiment if no entries exist
 
+  // Get most recent error messages (last 5)
+  const recentErrorMessages = averages.error_messages.slice(-5);
+
   // Update the conversations table with averages
   const { error: updateError } = await supabase
     .from("iitb_conversations")
@@ -287,6 +236,8 @@ export async function addAnalytics(data: AnalyticsData) {
       avg_ip: avgIp,
       avg_ex: avgEx,
       avg_empathy_score: avgEmpathyScore,
+      avg_error_rate: avgErrorRate,
+      error_messages: recentErrorMessages,
       dominant_sentiment: dominantSentiment,
     })
     .eq("id", data.conversation_id);
@@ -367,7 +318,7 @@ export async function getConversations(groupId: string = "overall") {
     const { data, error } = await query;
     if (error) throw error;
 
-    return data as Conversation[];
+    return data as Conversations[];
   } catch (error) {
     console.error("Error fetching conversations:", error);
     return [];
@@ -532,5 +483,22 @@ export async function getDashboardStats(groupId: string = "overall") {
       positiveSentimentPercentage: 0,
       avgResponseTime: 0,
     };
+  }
+}
+
+export async function getConversationErrorAnalysis(conversationId: string) {
+  try {
+    const { data, error } = await supabase
+      .from("iitb_chatbot_empathy_scores")
+      .select("error_rate, error_messages, message, created_at")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching error analysis:", error);
+    return [];
   }
 }

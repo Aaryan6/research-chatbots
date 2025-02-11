@@ -25,6 +25,8 @@ export type AnalyticsData = {
   ip: number;
   ex: number;
   empathy_score: number;
+  error_rate: number;
+  error_messages: string[];
   sentiment: string;
   conversation_id: string;
   created_at?: string;
@@ -40,10 +42,15 @@ export type Conversations = {
   avg_ip: number;
   avg_ex: number;
   avg_empathy_score: number;
+  avg_error_rate: number;
+  error_messages: string[];
   dominant_sentiment: string;
   reactions: {
     msg_id: string;
     reaction: "like" | "dislike";
   }[];
-  created_at: string;
+  feedback_rating?: number;
+  feedback_message?: string;
+  created_at?: string;
+  updated_at?: string;
 };

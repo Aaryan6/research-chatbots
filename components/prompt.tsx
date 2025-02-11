@@ -1,6 +1,6 @@
 "use client";
 
-import { Paperclip, Send } from "lucide-react";
+import { Send, MessageSquarePlus } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
@@ -8,10 +8,12 @@ export default function PromptBox({
   input,
   handleInputChange,
   handleSubmit,
+  onFeedbackClick,
 }: {
   input: string;
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  onFeedbackClick: () => void;
 }) {
   return (
     <div className="border-t p-4 bg-white z-20  ">
@@ -27,8 +29,9 @@ export default function PromptBox({
           variant="ghost"
           size="icon"
           className="h-10 w-10 shrink-0 rounded-full hover:bg-gray-100"
+          onClick={onFeedbackClick}
         >
-          <Paperclip className="h-5 w-5" />
+          <MessageSquarePlus className="h-5 w-5" />
         </Button>
         <Button
           type="submit"

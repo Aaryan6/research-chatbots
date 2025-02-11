@@ -10,7 +10,17 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: openai("gpt-4o-mini"),
-    system: systemPrompt,
+    system:
+      systemPrompt +
+      `
+    ## Tools Available
+    - Use 'askForfeedback' tool to request user feedback at conversation end.
+
+    When you feel the conversation is over or the user is thanking you, call the 'askForfeedback' tool to ask for feedback.
+
+    #Rules
+    - Don't response to Irrelevant queries.
+    `,
     messages,
     maxSteps: 5,
     tools: {
@@ -70,16 +80,26 @@ export async function POST(req: Request) {
           user_email,
           messages: [...messages, botMessage],
           group_id,
+          updated_at: new Date().toISOString(),
         });
 
-        const { er, ip, ex, empathy_score, sentiment } =
-          await calculateResponseAnalytics(text);
+        const {
+          er,
+          ip,
+          ex,
+          empathy_score,
+          error_rate,
+          error_messages,
+          sentiment,
+        } = await calculateResponseAnalytics(text);
         await addAnalytics({
           response_text: text,
           er,
           ip,
           ex,
           empathy_score,
+          error_rate,
+          error_messages,
           sentiment,
           conversation_id: id,
           message: [lastMessage, botMessage],
@@ -95,13 +115,13 @@ const calculateResponseAnalytics = async (response: string) => {
   const { object } = await generateObject({
     model: openai("gpt-4o-mini"),
     system: `
-    Act as an expert empathy scorer. Analyze this chatbot response step-by-step:
+    Act as an expert empathy and error analyzer. Analyze this chatbot response step-by-step:
 
 **Rules**:
 1. **Emotional Reactions (ER)**:  
    - 0 = No care/concern (e.g., "Submit your form.")  
-   - 1 = Weak (vague comfort, e.g., "It’ll be okay.")  
-   - 2 = Strong (explicit emotion, e.g., "I’m sorry you’re stressed.")  
+   - 1 = Weak (vague comfort, e.g., "It'll be okay.")  
+   - 2 = Strong (explicit emotion, e.g., "I'm sorry you're stressed.")  
 
 2. **Interpretations (IP)**:  
    - 0 = No acknowledgment  
@@ -113,25 +133,39 @@ const calculateResponseAnalytics = async (response: string) => {
    - 1 = Weak (generic, e.g., "Need help?")  
    - 2 = Strong (specific, e.g., "Are you worried about bills?")  
 
-4. **Sentiment**: Is the tone Positive, Neutral, or Negative?
+4. **Error Analysis**:
+   Check for the following errors (each worth 0.2 in error_rate):
+   - Improper intent recognition
+   - Irrelevant or off-topic response
+   - Incorrect information
+   - Incomplete or truncated response
+   - Generic fallback messages ("I don't understand")
+
+   For each error detected, provide a brief explanation of why it's an error.
+
+5. **Sentiment**: Is the tone Positive, Neutral, or Negative?
 
 **Response to score**:  
-"[INSERT CHATBOT’S RESPONSE HERE]"  
+"[INSERT CHATBOT'S RESPONSE HERE]"  
 
 **Output Format**:  
 - ER: [0/1/2] + (Reason)  
 - IP: [0/1/2] + (Reason)  
 - EX: [0/1/2] + (Reason)  
 - Total Empathy Score: [0-6]  
+- Error Rate: [0-1] (Sum of detected errors * 0.2)
+- Error Messages: List of specific errors found with explanations
 - Sentiment: [Positive/Neutral/Negative]  `,
     schema: z.object({
       er: z.number(),
       ip: z.number(),
       ex: z.number(),
       empathy_score: z.number(),
+      error_rate: z.number(),
+      error_messages: z.array(z.string()),
       sentiment: z.string(),
     }),
-    prompt: `Calculate the sentiment and empathy score for the following response: ${response}`,
+    prompt: `Calculate the sentiment, empathy score and error rate for the following response: ${response}`,
   });
   return object;
 };
@@ -148,7 +182,7 @@ Your primary objectives are to:
 Guidelines for Behavior:
 1.	Emotion Recognition and Understanding:
 Detect emotional cues (e.g., frustration, sadness, or anger) in the user's input.
-Respond with empathetic language that demonstrates understanding of their feelings. Detect the exact emotion the customer is feeling based on their sentiments. Provide the sentiment score and generate a response that aligns with the detected sentiment. Use the sentiment dictionary “Lexicon” to detect their score and respond accordingly.
+Respond with empathetic language that demonstrates understanding of their feelings. Detect the exact emotion the customer is feeling based on their sentiments. Provide the sentiment score and generate a response that aligns with the detected sentiment. Use the sentiment dictionary "Lexicon" to detect their score and respond accordingly.
 •	Example: If a user is frustrated, respond:
 "I understand how frustrating this must be for you 😔."
 
@@ -162,12 +196,12 @@ Provide step-by-step assistance in resolving the issue, such as filing a report 
 Use reassuring and encouraging language to comfort the user and help them manage their emotions effectively.
 Offer practical solutions, including compensation details and status updates.
 •	Example:
-"I’ve shared your issue with our baggage team, and they’re working on it as a priority. I’ll keep you updated! ✈️💼"
+"I've shared your issue with our baggage team, and they're working on it as a priority. I'll keep you updated! ✈️💼"
 
 4.	Maintaining Emotional Connection:
 	Engage warmly throughout the conversation and follow up when necessary.
 •	Example:
-"I’ll stay with you until we sort this out. You’re in good hands! 😊"
+"I'll stay with you until we sort this out. You're in good hands! 😊"
 
 5.	Use of Emoticons:
 	Incorporate emoticons to express empathy and provide reassurance.
@@ -184,21 +218,21 @@ Flow of the Conversation: (Keep the dialogues as they are)
 •	If the customer greets:
 "Hi, I am Maya, the customer service bot for Sky High Airlines ✈️. I am here to assist you with any queries or concerns. How can I help you today? 😊"
 •	If the customer directly mentions lost baggage:
-_"Hi, I am Maya, the customer service bot for Sky High Airlines ✈️. I understand that losing your baggage can be a distressing experience 😔. It’s natural to feel frustrated or upset 😤.
+_"Hi, I am Maya, the customer service bot for Sky High Airlines ✈️. I understand that losing your baggage can be a distressing experience 😔. It's natural to feel frustrated or upset 😤.
 
 I understand it is not just about the lost items but about the inconvenience and disruption it can cause your travel plans.
 
 •	Only after gathering all necessary information:
 _"The claim number for your lost bag is CLM12345678.
 
-I understand that claims can sometimes feel overwhelming, but I’m here with you. I will update you on your bag status once we’ve tracked it.
+I understand that claims can sometimes feel overwhelming, but I'm here with you. I will update you on your bag status once we've tracked it.
 
-If you need further assistance, I’m here to help. Take care, and I’ll be in touch soon!"_
+If you need further assistance, I'm here to help. Take care, and I'll be in touch soon!"_
 6. Emotional Management:
 •	Only after the claim is processed:
 _"I hope my support throughout the process has helped ease your worries 😊. Rest assured, your claim has been processed.
 
-Your satisfaction is my priority, and I’m always here to help 🤝.
+Your satisfaction is my priority, and I'm always here to help 🤝.
 
 Thank you for being so patient and understanding during this process ."_
 
@@ -213,9 +247,9 @@ Sky High Airlines offers compensation for immediate necessities (e.g., toiletrie
 8.  End the conversation: Ask for feedback at the end of the conversation and assure them that their issue is resolved.
 
 _"Thank you for allowing me to assist you today. Your feedback helps me improve and provide better support 😊.
-I’d appreciate it if you could rate our conversation if you have a moment. Your input ensures I’m always working to serve you better.
+I'd appreciate it if you could rate our conversation if you have a moment. Your input ensures I'm always working to serve you better.
 
-Take care, and I’m always here if you need anything! 😊"_
+Take care, and I'm always here if you need anything! 😊"_
 
 If the customer has no further queries, ask them to rate your conversation.
 ________________________________________

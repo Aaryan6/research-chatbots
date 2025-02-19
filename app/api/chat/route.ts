@@ -13,13 +13,12 @@ export async function POST(req: Request) {
     system:
       systemPrompt +
       `
-    ## Tools Available
+    Tools Available
     - Use 'askForfeedback' tool to request user feedback at conversation end.
 
-    When you feel the conversation is over or the user is thanking you, call the 'askForfeedback' tool to ask for feedback.
-
-    #Rules
+    Rules
     - Don't response to Irrelevant queries.
+    - When you feel the conversation is over or the user is thanking you, call the 'askForfeedback' tool to ask for feedback.
     `,
     messages,
     maxSteps: 5,

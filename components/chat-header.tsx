@@ -53,7 +53,7 @@ export default function ChatHeader({
             </Badge>
           </div>
         </div>
-        <Popover>
+        {/* <Popover>
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
@@ -80,7 +80,7 @@ export default function ChatHeader({
               ))}
             </div>
           </PopoverContent>
-        </Popover>
+        </Popover> */}
       </div>
     </CardHeader>
   );

@@ -25,6 +25,14 @@ export default function PromptBox({
           className="flex-1 rounded-full border-gray-200 bg-gray-50 focus-visible:ring-gray-900 shadow-sm"
         />
         <Button
+          type="submit"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 shrink-0 rounded-full hover:bg-gray-100"
+        >
+          <Send className="h-5 w-5" />
+        </Button>
+        <Button
           type="button"
           variant="ghost"
           size="icon"
@@ -32,14 +40,6 @@ export default function PromptBox({
           onClick={onFeedbackClick}
         >
           <MessageSquarePlus className="h-5 w-5" />
-        </Button>
-        <Button
-          type="submit"
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 shrink-0 rounded-full hover:bg-gray-100"
-        >
-          <Send className="h-5 w-5" />
         </Button>
       </form>
     </div>

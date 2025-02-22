@@ -1,10 +1,10 @@
 import { Navbar } from "@/components/navbar";
-import { Hero } from "@/components/hero";
 import { cookies } from "next/headers";
 import Chat from "@/components/chat";
-import { getUserInfo } from "./actions";
+import { getUserInfo } from "../actions";
+import { Hero } from "@/components/hero";
 
-export default async function Home() {
+export default async function AmEchoPage() {
   const cookieStore = cookies();
   const userInfo = cookieStore.get("iitb_user");
   let validatedUserInfo = null;
@@ -15,7 +15,10 @@ export default async function Home() {
       const dbUser = await getUserInfo(parsedUserInfo.email);
 
       if (dbUser) {
-        validatedUserInfo = dbUser;
+        validatedUserInfo = {
+          ...dbUser,
+          group: 8 // Automatically set group for am_echo
+        };
       }
     } catch (error) {
       console.error("Error validating user:", error);
@@ -25,8 +28,10 @@ export default async function Home() {
   return (
     <main className="relative min-h-screen">
       <Navbar />
+      <div className="container mx-auto">
       <Hero />
-      {/* <Chat userInfo={validatedUserInfo} /> */}
+        <Chat userInfo={validatedUserInfo} hideGroupSelect={true} predefinedGroup={8} />
+      </div>
     </main>
   );
-}
+} 

@@ -23,14 +23,20 @@ type FormData = {
   group: number;
 };
 
-export default function UserForm() {
+export default function UserForm({ 
+  predefinedGroup, 
+  hideGroupSelect = false 
+}: { 
+  predefinedGroup?: number;
+  hideGroupSelect?: boolean;
+}) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
-    group: 1,
+    group: predefinedGroup || 1,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,27 +110,34 @@ export default function UserForm() {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="group">Group</Label>
-            <Select>
-              <SelectTrigger className="">
-                <SelectValue placeholder="Select a group" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Groups</SelectLabel>
-                  <SelectItem value="1">Group 1</SelectItem>
-                  <SelectItem value="2">Group 2</SelectItem>
-                  <SelectItem value="3">Group 3</SelectItem>
-                  <SelectItem value="4">Group 4</SelectItem>
-                  <SelectItem value="5">Group 5</SelectItem>
-                  <SelectItem value="6">Group 6</SelectItem>
-                  <SelectItem value="7">Group 7</SelectItem>
-                  <SelectItem value="8">Group 8</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
+          {!hideGroupSelect && (
+            <div className="space-y-2">
+              <Label htmlFor="group">Group</Label>
+              <Select
+                value={formData.group.toString()}
+                onValueChange={(value) => 
+                  setFormData(prev => ({ ...prev, group: parseInt(value) }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a group" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Groups</SelectLabel>
+                    <SelectItem value="1">Group 1</SelectItem>
+                    <SelectItem value="2">Group 2</SelectItem>
+                    <SelectItem value="3">Group 3</SelectItem>
+                    <SelectItem value="4">Group 4</SelectItem>
+                    <SelectItem value="5">Group 5</SelectItem>
+                    <SelectItem value="6">Group 6</SelectItem>
+                    <SelectItem value="7">Group 7</SelectItem>
+                    <SelectItem value="8">Group 8</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {error && <p className="text-sm text-red-500 text-center">{error}</p>}
 

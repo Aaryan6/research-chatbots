@@ -9,18 +9,39 @@ import { generateId } from "ai";
 import { useChat } from "ai/react";
 import { MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import ChatHeader from "./chat-header";
 import Messages from "./messages";
 import PromptBox from "./prompt";
 import UserForm from "./user-form";
 
-export default function Chat({ userInfo }: { userInfo: UserFormData | null }) {
+export default function Chat({ 
+  userInfo, 
+  hideGroupSelect = false,
+  predefinedGroup
+}: { 
+  userInfo: UserFormData | null;
+  hideGroupSelect?: boolean;
+  predefinedGroup?: number;
+}) {
   const [isOpen, setIsOpen] = useState(true);
   const [showFeedback, setShowFeedback] = useState(false);
   const chatId = useRef(generateId());
-  const [chatbot, setChatbot] = useState<Chatbot>(chatbotData.group1);
   const router = useRouter();
+
+  // Initialize chatbot based on predefinedGroup or userInfo group
+  const initialGroup = predefinedGroup || userInfo?.group || 1;
+  const [chatbot, setChatbot] = useState<Chatbot>(() => {
+    const groupKey = `group${initialGroup}` as keyof typeof chatbotData;
+    return chatbotData[groupKey];
+  });
+
+  // Update chatbot when group changes
+  useEffect(() => {
+    const groupNumber = predefinedGroup || userInfo?.group || 1;
+    const groupKey = `group${groupNumber}` as keyof typeof chatbotData;
+    setChatbot(chatbotData[groupKey]);
+  }, [predefinedGroup, userInfo?.group]);
 
   const { messages, input, handleInputChange, handleSubmit, setMessages } =
     useChat({
@@ -37,7 +58,7 @@ export default function Chat({ userInfo }: { userInfo: UserFormData | null }) {
         user_email: userInfo?.email,
         id: chatId.current,
         systemPrompt: chatbot.systemPrompt,
-        group_id: chatbot.id,
+        group_id: predefinedGroup || userInfo?.group || 1,
       },
       onError(error) {
         console.error("Error:", error);
@@ -54,23 +75,27 @@ export default function Chat({ userInfo }: { userInfo: UserFormData | null }) {
     }
   };
 
-  const handleSetChatbot = (chatbot: Chatbot) => {
+  const handleSetChatbot = (newChatbot: Chatbot) => {
+    if (predefinedGroup) {
+      // If predefinedGroup exists, don't allow changing the chatbot
+      return;
+    }
     router.refresh();
     chatId.current = generateId();
     setMessages([
       {
         id: generateId(),
         role: "assistant",
-        content: chatbot.initialMessage || "Hello, how can I assist you today?",
+        content: newChatbot.initialMessage || "Hello, how can I assist you today?",
       },
     ]);
-    setChatbot(chatbot);
+    setChatbot(newChatbot);
   };
 
   if (!userInfo) {
     return (
       <div className="fixed w-full max-w-md right-0 top-0 md:top-auto md:bottom-4 md:right-4 z-50 md:h-auto h-full">
-        <UserForm />
+        <UserForm hideGroupSelect={hideGroupSelect} predefinedGroup={predefinedGroup} />
       </div>
     );
   }
@@ -90,6 +115,7 @@ export default function Chat({ userInfo }: { userInfo: UserFormData | null }) {
             chatbot={chatbot}
             onClose={handleEndChat}
             setChatbot={handleSetChatbot}
+            hideGroupSelect={hideGroupSelect}
           />
           <CardContent className="p-0 flex flex-col h-[calc(100%-5rem)]">
             <Messages

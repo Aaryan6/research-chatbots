@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { chatbotData } from "@/lib/data";
 import { Chatbot } from "@/lib/types";
-import { generateId } from "ai";
+import { generateId, Message } from "ai";
 import { useChat } from "ai/react";
 import { MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -15,17 +15,31 @@ import Messages from "./messages";
 import PromptBox from "./prompt";
 import UserForm from "./user-form";
 
-export default function Chat({ 
-  userInfo, 
+// Define the Attachment type to match what's expected in Messages component
+interface Attachment {
+  name: string;
+  type: string;
+  contentType: string;
+  url: string;
+}
+
+// Extended Message type including experimental_attachments
+interface ExtendedMessage extends Message {
+  experimental_attachments?: Attachment[];
+}
+
+export default function Chat({
+  userInfo,
   hideGroupSelect = false,
-  predefinedGroup
-}: { 
+  predefinedGroup,
+}: {
   userInfo: UserFormData | null;
   hideGroupSelect?: boolean;
   predefinedGroup?: number;
 }) {
   const [isOpen, setIsOpen] = useState(true);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [files, setFiles] = useState<FileList | null>(null);
   const chatId = useRef(generateId());
   const router = useRouter();
 
@@ -86,16 +100,39 @@ export default function Chat({
       {
         id: generateId(),
         role: "assistant",
-        content: newChatbot.initialMessage || "Hello, how can I assist you today?",
+        content:
+          newChatbot.initialMessage || "Hello, how can I assist you today?",
       },
     ]);
     setChatbot(newChatbot);
   };
 
+  const handleFileSelect = (selectedFiles: FileList | null) => {
+    setFiles(selectedFiles);
+  };
+
+  // Handle form submission with files
+  const handleChatSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    if (files && files.length > 0) {
+      // Pass the files as experimental_attachments
+      handleSubmit(e, {
+        experimental_attachments: files,
+        allowEmptySubmit: true,
+      });
+      // Reset files after submission
+      setFiles(null);
+    } else {
+      handleSubmit(e);
+    }
+  };
+
   if (!userInfo) {
     return (
       <div className="fixed w-full max-w-md right-0 top-0 md:top-auto md:bottom-4 md:right-4 z-50 md:h-auto h-full">
-        <UserForm hideGroupSelect={hideGroupSelect} predefinedGroup={predefinedGroup} />
+        <UserForm
+          hideGroupSelect={hideGroupSelect}
+          predefinedGroup={predefinedGroup}
+        />
       </div>
     );
   }
@@ -119,15 +156,16 @@ export default function Chat({
           />
           <CardContent className="p-0 flex flex-col h-[calc(100%-5rem)]">
             <Messages
-              messages={messages}
+              messages={messages as ExtendedMessage[]}
               chatId={chatId.current}
               showFeedback={showFeedback}
             />
             <PromptBox
               input={input}
               handleInputChange={handleInputChange}
-              handleSubmit={handleSubmit}
+              handleSubmit={handleChatSubmit}
               onFeedbackClick={() => setShowFeedback(!showFeedback)}
+              onFileSelect={handleFileSelect}
             />
           </CardContent>
         </Card>

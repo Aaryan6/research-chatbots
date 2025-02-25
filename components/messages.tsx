@@ -6,9 +6,23 @@ import RepairShopCards from "./repair-shops-cards";
 import { MessageReaction } from "./message-reaction";
 import { RateCard } from "./rate-card";
 import supabase from "@/lib/db";
+import Image from "next/image";
+
+// Define the Attachment type
+interface Attachment {
+  name: string;
+  type: string;
+  contentType: string;
+  url: string;
+}
+
+// Extended Message type to include experimental_attachments
+interface ExtendedMessage extends Message {
+  experimental_attachments?: Attachment[];
+}
 
 interface MessagesProps {
-  messages: Message[];
+  messages: ExtendedMessage[];
   chatId: string;
   showFeedback: boolean;
 }
@@ -46,6 +60,32 @@ export default function Messages({
             message.role === "assistant" ? "items-start" : "items-end"
           } relative z-10`}
         >
+          {/* Display image attachments if they exist */}
+          {message.role === "user" &&
+            message.experimental_attachments &&
+            message.experimental_attachments.length > 0 && (
+              <div className="flex gap-2 mb-2 flex-wrap justify-end">
+                {message.experimental_attachments
+                  .filter((attachment) =>
+                    attachment.contentType.startsWith("image/")
+                  )
+                  .map((attachment, index) => (
+                    <div
+                      key={index}
+                      className="relative rounded-lg overflow-hidden border border-gray-200 shadow-sm"
+                    >
+                      <Image
+                        src={attachment.url}
+                        alt={attachment.name || `Attachment ${index + 1}`}
+                        width={100}
+                        height={100}
+                        className="object-cover"
+                      />
+                    </div>
+                  ))}
+              </div>
+            )}
+
           {message.content && (
             <>
               <div
